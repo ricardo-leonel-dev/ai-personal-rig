@@ -1,0 +1,208 @@
+# ============================================================
+# AI RIG — docker-compose.yml
+# 6 x NVIDIA GeForce GTX 1660 Ti (6 GB each = 36 GB total)
+#
+# SERVICES
+#   11501 — Gemma 4 26B MoE    (GPUs 0,1,2,3 — tensor parallel x4)
+#   11502 — Qwen 3.5 9B fast   (GPU 4 — text, coding, Spanish)
+#   11503 — Qwen 2.5 VL 7B     (GPU 5 — vision, images, PDFs)
+#   11504 — Ollama embeddings   (CPU — RAG with nomic-embed-text)
+#   3000  — Open WebUI          (browser chat interface)
+#
+# n8n IS ON ANOTHER SERVER. Connect it by pointing an OpenAI
+# credential at http://YOUR_SERVER_IP:11501/v1 (any API key).
+#
+# SETUP
+#   1. cp .env.example .env
+#   2. Edit .env — add your HF_TOKEN and SERVER_IP
+#   3. chmod 600 .env
+#   4. docker compose up vllm-gemma4-main -d   (start heavy one first)
+#   5. docker logs vllm-gemma4-main -f         (wait for "startup complete")
+#   6. docker compose up -d                    (bring up the rest)
+#   7. docker exec ollama-embeddings ollama pull nomic-embed-text
+# ============================================================
+
+services:
+
+  # ----------------------------------------------------------
+  # SERVICE 1: Gemma 4 26B MoE — Main Brain
+  # GPUs 0, 1, 2, 3 — tensor parallel x4
+  # ----------------------------------------------------------
+  # Gemma 4 26B MoE: 26B total weights, only ~4B active per
+  # token. Needs ~24-28 GB VRAM at Q4 across 4x 6GB GPUs.
+  #
+  # IMPORTANT — Gemma 4 known issues:
+  #   - Requires transformers >= 5.5.0 but vLLM pins <= 4.57.6
+  #   - After first start, run the fix script: ./fix-gemma4.sh
+  #   - FlashAttention is incompatible: use TRITON_ATTN (done)
+  #   - tool-call-parser must be "gemma4" for agent tool use
+  # ----------------------------------------------------------
+  vllm-gemma4-main:
+    image: vllm/vllm-openai:latest
+    container_name: vllm-gemma4-main
+    restart: always
+    ports:
+      - "11501:8000"
+    ipc: host
+    volumes:
+      - vllm_gemma4_data:/root/.cache/huggingface
+    environment:
+      - HF_TOKEN=${HF_TOKEN}
+      - CUDA_VISIBLE_DEVICES=0,1,2,3
+      - NVML_VISIBLE_DEVICES=0,1,2,3
+      # Uncomment after models are downloaded to force offline mode:
+      #- HF_HUB_OFFLINE=1
+    command: >
+      --model google/gemma-4-26B-A4B-it
+      --tensor-parallel-size 4
+      --max-model-len 8192
+      --gpu-memory-utilization 0.90
+      --enforce-eager
+      --enable-auto-tool-choice
+      --tool-call-parser gemma4
+      --attention-backend TRITON_ATTN
+      --dtype bfloat16
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ['0', '1', '2', '3']
+              capabilities: [gpu]
+
+  # ----------------------------------------------------------
+  # SERVICE 2: Qwen 3.5 9B — Fast Text + Coding + Spanish
+  # GPU 4 only
+  # ----------------------------------------------------------
+  # 9B at Q4_K_M = ~5.5 GB VRAM. Perfect fit for a single
+  # 1660 Ti. Best for: burst requests, coding, multilingual.
+  # Qwen 3.5 requires vLLM 0.17+ (included in :latest).
+  # ----------------------------------------------------------
+  vllm-qwen35-fast:
+    image: vllm/vllm-openai:latest
+    container_name: vllm-qwen35-fast
+    restart: always
+    ports:
+      - "11502:8000"
+    ipc: host
+    volumes:
+      - vllm_qwen35_fast_data:/root/.cache/huggingface
+    environment:
+      - HF_TOKEN=${HF_TOKEN}
+      # GPU 4 is the only device reserved below — it appears
+      # as device 0 inside this container. This is correct.
+      - CUDA_VISIBLE_DEVICES=0
+      - NVML_VISIBLE_DEVICES=0
+      #- HF_HUB_OFFLINE=1
+    command: >
+      --model Qwen/Qwen3.5-9B-Instruct
+      --tensor-parallel-size 1
+      --max-model-len 32768
+      --gpu-memory-utilization 0.88
+      --enforce-eager
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ['4']
+              capabilities: [gpu]
+
+  # ----------------------------------------------------------
+  # SERVICE 3: Qwen 2.5 VL 7B — Vision + Images + PDFs
+  # GPU 5 only
+  # ----------------------------------------------------------
+  # Vision-language model for image analysis, PDF extraction,
+  # screenshots. 7B fits in 6 GB at high utilization.
+  # Supports up to 4 images per request.
+  # ----------------------------------------------------------
+  vllm-qwen-vision:
+    image: vllm/vllm-openai:latest
+    container_name: vllm-qwen-vision
+    restart: always
+    ports:
+      - "11503:8000"
+    ipc: host
+    volumes:
+      - vllm_vision_data:/root/.cache/huggingface
+    environment:
+      - HF_TOKEN=${HF_TOKEN}
+      # GPU 5 is the only device reserved below — it appears
+      # as device 0 inside this container. This is correct.
+      - CUDA_VISIBLE_DEVICES=0
+      - NVML_VISIBLE_DEVICES=0
+      #- HF_HUB_OFFLINE=1
+    command: >
+      --model Qwen/Qwen2.5-VL-7B-Instruct
+      --tensor-parallel-size 1
+      --max-model-len 4096
+      --gpu-memory-utilization 0.85
+      --enforce-eager
+      --limit-mm-per-prompt image=4
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ['5']
+              capabilities: [gpu]
+
+  # ----------------------------------------------------------
+  # SERVICE 4: Ollama — CPU Embeddings for RAG
+  # No GPU — runs entirely on CPU
+  # ----------------------------------------------------------
+  # After starting, pull the embedding model:
+  #   docker exec ollama-embeddings ollama pull nomic-embed-text
+  #
+  # Use from n8n or any app at:
+  #   http://YOUR_SERVER_IP:11504
+  # API endpoint for embeddings:
+  #   POST http://YOUR_SERVER_IP:11504/api/embeddings
+  #   Body: { "model": "nomic-embed-text", "prompt": "..." }
+  # ----------------------------------------------------------
+  ollama-embeddings:
+    image: ollama/ollama:latest
+    container_name: ollama-embeddings
+    restart: always
+    ports:
+      - "11504:11434"
+    environment:
+      - CUDA_VISIBLE_DEVICES=-1
+      - OLLAMA_NUM_PARALLEL=4
+    volumes:
+      - ollama_data:/root/.ollama
+
+  # ----------------------------------------------------------
+  # SERVICE 5: Open WebUI — Browser Chat Interface
+  # Access at: http://YOUR_SERVER_IP:3000
+  # ----------------------------------------------------------
+  # Points at Gemma 4 by default. You can add Qwen 3.5 and
+  # the vision model as extra connections inside the UI under
+  # Settings → Connections → add OpenAI-compatible endpoint.
+  # ----------------------------------------------------------
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:main
+    container_name: open-webui
+    restart: always
+    ports:
+      - "3000:8080"
+    environment:
+      # Primary model — Gemma 4
+      - OPENAI_API_BASE_URL=http://vllm-gemma4-main:8000/v1
+      - OPENAI_API_KEY=not-needed
+      # Secret key for session encryption — set in .env
+      - WEBUI_SECRET_KEY=${OPEN_WEBUI_SECRET}
+    volumes:
+      - open-webui_data:/app/backend/data
+    depends_on:
+      - vllm-gemma4-main
+
+# ============================================================
+# VOLUMES — persistent storage, survive docker compose down
+# ============================================================
+volumes:
+  vllm_gemma4_data:      # Gemma 4 model cache (~49 GB on disk)
+  vllm_qwen35_fast_data: # Qwen 3.5 9B model cache (~5 GB)
+  vllm_vision_data:      # Qwen 2.5 VL 7B model cache (~8 GB)
+  ollama_data:           # Ollama models (nomic-embed-text ~274 MB)
+  open-webui_data:       # WebUI chat history and settings
