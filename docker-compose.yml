@@ -53,17 +53,17 @@ services:
       # Uncomment after models are downloaded to force offline mode:
       #- HF_HUB_OFFLINE=1
     command: >
-      google/gemma-4-26B-A4B-it
+      majentik/gemma-4-26B-A4B-TurboQuant-AWQ-4bit
       --tensor-parallel-size 4
       --max-model-len 8192
       --max-num-batched-tokens 4096
-      --gpu-memory-utilization 0.85
+      --gpu-memory-utilization 0.80
       --enforce-eager
       --enable-auto-tool-choice
       --tool-call-parser gemma4
       --attention-backend TRITON_ATTN
       --dtype float16
-      --quantization awq
+      --quantization awq_marlin
     deploy:
       resources:
         reservations:
