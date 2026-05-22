@@ -138,7 +138,7 @@ services:
               capabilities: [gpu]
 
   # ===========================================================
-  # AGENT 3: Qwen 2.5 7B — Multilingual & Translation
+  # AGENT 3: Mistral 7B — Multilingual & Translation
   # GPU 3 | Port 11504 | ~3.5GB (quantized)
   # ===========================================================
   vllm-agent-3:
@@ -156,14 +156,13 @@ services:
       - NVML_VISIBLE_DEVICES=3
       - PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
     command: >
-      TheBloke/Qwen-7B-Chat-AWQ
+      TheBloke/Mistral-7B-Instruct-v0.1-AWQ
       --tensor-parallel-size 1
       --max-model-len 4096
       --max-num-batched-tokens 2048
       --quantization awq
       --gpu-memory-utilization 0.75
       --dtype float16
-      --trust-remote-code
     deploy:
       resources:
         reservations:
