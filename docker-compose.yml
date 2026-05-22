@@ -3,15 +3,15 @@
 # 6 x NVIDIA GeForce GTX 1660 Ti (6 GB each = 36 GB total)
 #
 # ACTIVE SERVICES
-#   11501 — Gemma 4 E4B (GPUs 0,1 TP2) — Tool-using assistant + vision
-#   11505 — Llama 3.1 8B (GPUs 2,3,4 TP3) — Reasoning + function calling
+#   11501 — Gemma 4 E4B (GPUs 0,1,2 TP3) — Tool-using assistant + vision
+#   11505 — Llama 3.1 8B (GPUs 3,4,5 TP3) — Reasoning + function calling
 #   11504 — Ollama embeddings (CPU) — RAG with nomic-embed-text
 #   3000  — Open WebUI — Browser chat interface
 #
 # AVAILABLE (COMMENTED) — Uncomment to activate:
-#   11502 — Qwen 3.5 9B (GPU 4) — Fast text/coding/Spanish
-#   11503 — Qwen 2.5 VL 7B (GPU 5) — Advanced vision/images/PDFs
-#   11501 — Gemma 4 E2B (GPU 0) — Lightweight alternative to E4B
+#   11502 — Qwen 3.5 9B (GPU 3) — Fast text/coding/Spanish (replaces Llama)
+#   11503 — Qwen 2.5 VL 7B (GPU 5) — Advanced vision/images/PDFs (replaces Llama)
+#   11501 — Gemma 4 E2B (GPU 0 TP1) — Lightweight alternative to E4B (frees GPUs 1,2)
 #
 # HOW TO ACTIVATE ALTERNATIVE MODELS:
 #   1. Comment out (add #) the active service in docker-compose.yml
@@ -35,11 +35,11 @@ services:
 
   # ===========================================================
   # PRIMARY: Gemma 4 E4B — Tool-Using Assistant + Vision
-  # GPUs 0, 1 (tensor-parallel-size 2)
+  # GPUs 0, 1, 2 (tensor-parallel-size 3)
   # ===========================================================
   # 4B model, multimodal (text + images), native tool calling
   # Perfect for: agents, image analysis, tool use
-  # Memory: ~4GB per GPU at 0.85 utilization ✓
+  # Memory: ~2.67GB per GPU for weights at 0.75 utilization ✓
   # ===========================================================
   vllm-gemma4-main:
     image: vllm/vllm-openai:latest
@@ -52,16 +52,16 @@ services:
       - vllm_gemma4_data:/root/.cache/huggingface
     environment:
       - HF_TOKEN=${HF_TOKEN}
-      - CUDA_VISIBLE_DEVICES=0,1
-      - NVML_VISIBLE_DEVICES=0,1
+      - CUDA_VISIBLE_DEVICES=0,1,2
+      - NVML_VISIBLE_DEVICES=0,1,2
       - PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
       #- HF_HUB_OFFLINE=1
     command: >
       google/gemma-4-E4B-it
-      --tensor-parallel-size 2
+      --tensor-parallel-size 3
       --max-model-len 4096
       --max-num-batched-tokens 2048
-      --gpu-memory-utilization 0.60
+      --gpu-memory-utilization 0.75
       --enforce-eager
       --enable-auto-tool-choice
       --tool-call-parser gemma4
@@ -71,16 +71,16 @@ services:
         reservations:
           devices:
             - driver: nvidia
-              device_ids: ['0', '1']
+              device_ids: ['0', '1', '2']
               capabilities: [gpu]
 
   # ===========================================================
   # PRIMARY: Llama 3.1 8B — Reasoning + Function Calling
-  # GPUs 2, 3, 4 (tensor-parallel-size 3)
+  # GPUs 3, 4, 5 (tensor-parallel-size 3)
   # ===========================================================
   # 8B model, excellent reasoning, reliable function calling
   # Perfect for: complex tasks, planning, coding
-  # Memory: ~5.3GB per GPU at 0.85 utilization ⚠️ Tight but works
+  # Memory: ~2.67GB per GPU for weights at 0.85 utilization ✓
   # ===========================================================
   vllm-llama-reasoning:
     image: vllm/vllm-openai:latest
@@ -93,8 +93,8 @@ services:
       - vllm_llama_data:/root/.cache/huggingface
     environment:
       - HF_TOKEN=${HF_TOKEN}
-      - CUDA_VISIBLE_DEVICES=2,3,4
-      - NVML_VISIBLE_DEVICES=2,3,4
+      - CUDA_VISIBLE_DEVICES=3,4,5
+      - NVML_VISIBLE_DEVICES=3,4,5
       #- HF_HUB_OFFLINE=1
     command: >
       meta-llama/Llama-3.1-8B-Instruct
@@ -108,7 +108,7 @@ services:
         reservations:
           devices:
             - driver: nvidia
-              device_ids: ['2', '3', '4']
+              device_ids: ['3', '4', '5']
               capabilities: [gpu]
 
   # ===========================================================
@@ -117,8 +117,8 @@ services:
   # ===========================================================
   # 2B model, ultra-fast, multimodal, tool use capable
   # Perfect for: quick tasks, edge deployment, low latency
-  # Memory: ~4GB on 1 GPU ✓ Comfortable fit
-  # TO ACTIVATE: Comment vllm-gemma4-main above, uncomment this
+  # Memory: ~4GB on 1 GPU ✓ Comfortable fit (frees GPUs 1,2 for other tasks)
+  # TO ACTIVATE: Comment vllm-gemma4-main (TP3) above, uncomment this
   # ===========================================================
   # vllm-gemma4-main:
   #   image: vllm/vllm-openai:latest
@@ -154,13 +154,13 @@ services:
 
   # ===========================================================
   # ALTERNATIVE: Qwen 3.5 9B — Fast Text/Coding/Spanish
-  # GPU 4 (tensor-parallel-size 1)
+  # GPU 3 (tensor-parallel-size 1)
   # ===========================================================
   # 9B model, excellent for multilingual + coding
   # Perfect for: burst requests, coding, Spanish/multilingual
-  # Memory: ~5.5GB on GPU 4 ⚠️ Tight
+  # Memory: ~5.5GB on GPU 3 ⚠️ Tight
   # TO ACTIVATE: Uncomment this, comment vllm-llama-reasoning
-  # WARNING: Cannot run alongside Llama (both use GPU 4)
+  # WARNING: Cannot run alongside Llama (Llama uses GPUs 3,4,5)
   # ===========================================================
   # vllm-qwen35-fast:
   #   image: vllm/vllm-openai:latest
@@ -173,8 +173,8 @@ services:
   #     - vllm_qwen35_fast_data:/root/.cache/huggingface
   #   environment:
   #     - HF_TOKEN=${HF_TOKEN}
-  #     - CUDA_VISIBLE_DEVICES=0
-  #     - NVML_VISIBLE_DEVICES=0
+  #     - CUDA_VISIBLE_DEVICES=3
+  #     - NVML_VISIBLE_DEVICES=3
   #     #- HF_HUB_OFFLINE=1
   #   command: >
   #     Qwen/Qwen3.5-9B-Instruct
@@ -188,7 +188,7 @@ services:
   #       reservations:
   #         devices:
   #           - driver: nvidia
-  #             device_ids: ['4']
+  #             device_ids: ['3']
   #             capabilities: [gpu]
 
   # ===========================================================
@@ -198,7 +198,8 @@ services:
   # 7B vision-language model, best for image analysis
   # Perfect for: detailed image understanding, PDFs, documents
   # Memory: ~7GB on GPU 5 ⚠️ Very tight at 0.85 utilization
-  # TO ACTIVATE: Uncomment this, need to free GPU 5
+  # TO ACTIVATE: Uncomment this, comment vllm-llama-reasoning
+  # WARNING: Cannot run alongside Llama (Llama uses GPUs 3,4,5)
   # ===========================================================
   # vllm-qwen-vision:
   #   image: vllm/vllm-openai:latest
@@ -211,8 +212,8 @@ services:
   #     - vllm_vision_data:/root/.cache/huggingface
   #   environment:
   #     - HF_TOKEN=${HF_TOKEN}
-  #     - CUDA_VISIBLE_DEVICES=0
-  #     - NVML_VISIBLE_DEVICES=0
+  #     - CUDA_VISIBLE_DEVICES=5
+  #     - NVML_VISIBLE_DEVICES=5
   #     #- HF_HUB_OFFLINE=1
   #   command: >
   #     Qwen/Qwen2.5-VL-7B-Instruct
