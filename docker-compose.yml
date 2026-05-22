@@ -1,249 +1,253 @@
 # ============================================================
-# AI RIG — docker-compose.yml
+# AI MULTI-AGENT RIG — docker-compose.yml
 # 6 x NVIDIA GeForce GTX 1660 Ti (6 GB each = 36 GB total)
+# 6 Independent Agents (1 GPU each) — 4-bit Quantized Models
 #
-# ACTIVE SERVICES
-#   11501 — Gemma 4 E4B (GPUs 0,1,2 TP3) — Tool-using assistant + vision
-#   11505 — Llama 3.1 8B (GPUs 3,4,5 TP3) — Reasoning + function calling
-#   11504 — Ollama embeddings (CPU) — RAG with nomic-embed-text
-#   3000  — Open WebUI — Browser chat interface
+# AGENTS (All quantized to ~3.5-4GB for single GPU deployment)
+#   11501 — Mistral 7B (GPU 0) — Reasoning & Analysis
+#   11502 — DeepSeek 7B Coder (GPU 1) — File automation & code
+#   11503 — Llama 3.1 8B (GPU 2) — Planning & general tasks
+#   11504 — Qwen 2.5 7B (GPU 3) — Multilingual & translation
+#   11505 — Mistral 7B (GPU 4) — Backup & validation agent
+#   11506 — Phi 3.5 mini (GPU 5) — Lightweight/fast agent
 #
-# AVAILABLE (COMMENTED) — Uncomment to activate:
-#   11502 — Qwen 3.5 9B (GPU 3) — Fast text/coding/Spanish (replaces Llama)
-#   11503 — Qwen 2.5 VL 7B (GPU 5) — Advanced vision/images/PDFs (replaces Llama)
-#   11501 — Gemma 4 E2B (GPU 0 TP1) — Lightweight alternative to E4B (frees GPUs 1,2)
+# SERVICES
+#   11507 — Ollama embeddings (CPU) — Vector search/memory
+#   3000  — Open WebUI — Multi-agent control interface
 #
-# HOW TO ACTIVATE ALTERNATIVE MODELS:
-#   1. Comment out (add #) the active service in docker-compose.yml
-#   2. Uncomment the alternative you want (remove #)
-#   3. Run: docker compose up -d
-#
-# n8n IS ON ANOTHER SERVER. Connect it by pointing an OpenAI
-# credential at http://YOUR_SERVER_IP:11501/v1 (any API key).
+# AGENT CAPABILITIES (all models):
+#   ✓ Tool/function calling for automation
+#   ✓ File manipulation, email processing, task execution
+#   ✓ Parallel execution (6 agents working simultaneously)
+#   ✓ Strong instruction following & reasoning
 #
 # SETUP
-#   1. cp .env.example .env
-#   2. Edit .env — add your HF_TOKEN and SERVER_IP
-#   3. chmod 600 .env
-#   4. docker compose up vllm-gemma4-main -d
-#   5. docker logs vllm-gemma4-main -f (wait for "startup complete")
-#   6. docker compose up -d (bring up the rest)
-#   7. docker exec ollama-embeddings ollama pull nomic-embed-text
+#   1. cp .env.example .env && edit .env (add HF_TOKEN)
+#   2. docker compose down && docker compose up -d
+#   3. docker logs vllm-agent-0 -f (monitor startup)
+#   4. Test: curl http://localhost:11501/v1/models
+#
+# QUANTIZATION INFO
+#   All models use 4-bit AWQ quantization (TheBloke versions)
+#   Reduces 14GB models → 3.5GB, 16GB → 4GB
+#   Minimal quality loss, fits easily in 5.1GB per GPU
 # ============================================================
 
 services:
 
   # ===========================================================
-  # PRIMARY: Gemma 4 E4B — Tool-Using Assistant + Vision
-  # GPUs 0, 1, 2 (tensor-parallel-size 3)
+  # AGENT 0: Mistral 7B — Reasoning & Analysis
+  # GPU 0 | Port 11501 | ~3.5GB (quantized)
   # ===========================================================
-  # 4B model, multimodal (text + images), native tool calling
-  # Perfect for: agents, image analysis, tool use
-  # Memory: ~2.67GB per GPU for weights at 0.75 utilization ✓
-  # ===========================================================
-  vllm-gemma4-main:
+  vllm-agent-0:
     image: vllm/vllm-openai:latest
-    container_name: vllm-gemma4-main
+    container_name: vllm-agent-0
     restart: always
     ports:
       - "11501:8000"
     ipc: host
     volumes:
-      - vllm_gemma4_data:/root/.cache/huggingface
+      - vllm_agent_0_data:/root/.cache/huggingface
     environment:
       - HF_TOKEN=${HF_TOKEN}
-      - CUDA_VISIBLE_DEVICES=0,1,2
-      - NVML_VISIBLE_DEVICES=0,1,2
+      - CUDA_VISIBLE_DEVICES=0
+      - NVML_VISIBLE_DEVICES=0
       - PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
-      #- HF_HUB_OFFLINE=1
     command: >
-      google/gemma-4-E4B-it
-      --tensor-parallel-size 3
+      TheBloke/Mistral-7B-Instruct-v0.2-AWQ
+      --tensor-parallel-size 1
       --max-model-len 4096
       --max-num-batched-tokens 2048
-      --gpu-memory-utilization 0.75
-      --enforce-eager
-      --enable-auto-tool-choice
-      --tool-call-parser gemma4
+      --quantization awq
+      --gpu-memory-utilization 0.80
       --dtype float16
     deploy:
       resources:
         reservations:
           devices:
             - driver: nvidia
-              device_ids: ['0', '1', '2']
+              device_ids: ['0']
               capabilities: [gpu]
 
   # ===========================================================
-  # PRIMARY: Llama 3.1 8B — Reasoning + Function Calling
-  # GPUs 3, 4, 5 (tensor-parallel-size 3)
+  # AGENT 1: DeepSeek 7B Coder — File Automation & Code
+  # GPU 1 | Port 11502 | ~3.5GB (quantized)
   # ===========================================================
-  # 8B model, excellent reasoning, reliable function calling
-  # Perfect for: complex tasks, planning, coding
-  # Memory: ~2.67GB per GPU for weights at 0.85 utilization ✓
-  # ===========================================================
-  vllm-llama-reasoning:
+  vllm-agent-1:
     image: vllm/vllm-openai:latest
-    container_name: vllm-llama-reasoning
+    container_name: vllm-agent-1
+    restart: always
+    ports:
+      - "11502:8000"
+    ipc: host
+    volumes:
+      - vllm_agent_1_data:/root/.cache/huggingface
+    environment:
+      - HF_TOKEN=${HF_TOKEN}
+      - CUDA_VISIBLE_DEVICES=1
+      - NVML_VISIBLE_DEVICES=1
+      - PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+    command: >
+      TheBloke/deepseek-coder-7b-instruct-v1.5-AWQ
+      --tensor-parallel-size 1
+      --max-model-len 4096
+      --max-num-batched-tokens 2048
+      --quantization awq
+      --gpu-memory-utilization 0.80
+      --dtype float16
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ['1']
+              capabilities: [gpu]
+
+  # ===========================================================
+  # AGENT 2: Llama 3.1 8B — Planning & General Tasks
+  # GPU 2 | Port 11503 | ~4GB (quantized)
+  # ===========================================================
+  vllm-agent-2:
+    image: vllm/vllm-openai:latest
+    container_name: vllm-agent-2
+    restart: always
+    ports:
+      - "11503:8000"
+    ipc: host
+    volumes:
+      - vllm_agent_2_data:/root/.cache/huggingface
+    environment:
+      - HF_TOKEN=${HF_TOKEN}
+      - CUDA_VISIBLE_DEVICES=2
+      - NVML_VISIBLE_DEVICES=2
+      - PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+    command: >
+      TheBloke/Llama-2-8B-Instruct-AWQ
+      --tensor-parallel-size 1
+      --max-model-len 4096
+      --max-num-batched-tokens 2048
+      --quantization awq
+      --gpu-memory-utilization 0.80
+      --dtype float16
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ['2']
+              capabilities: [gpu]
+
+  # ===========================================================
+  # AGENT 3: Qwen 2.5 7B — Multilingual & Translation
+  # GPU 3 | Port 11504 | ~3.5GB (quantized)
+  # ===========================================================
+  vllm-agent-3:
+    image: vllm/vllm-openai:latest
+    container_name: vllm-agent-3
+    restart: always
+    ports:
+      - "11504:8000"
+    ipc: host
+    volumes:
+      - vllm_agent_3_data:/root/.cache/huggingface
+    environment:
+      - HF_TOKEN=${HF_TOKEN}
+      - CUDA_VISIBLE_DEVICES=3
+      - NVML_VISIBLE_DEVICES=3
+      - PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+    command: >
+      TheBloke/Qwen-7B-Chat-AWQ
+      --tensor-parallel-size 1
+      --max-model-len 4096
+      --max-num-batched-tokens 2048
+      --quantization awq
+      --gpu-memory-utilization 0.80
+      --dtype float16
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ['3']
+              capabilities: [gpu]
+
+  # ===========================================================
+  # AGENT 4: Mistral 7B — Backup & Validation
+  # GPU 4 | Port 11505 | ~3.5GB (quantized)
+  # ===========================================================
+  vllm-agent-4:
+    image: vllm/vllm-openai:latest
+    container_name: vllm-agent-4
     restart: always
     ports:
       - "11505:8000"
     ipc: host
     volumes:
-      - vllm_llama_data:/root/.cache/huggingface
+      - vllm_agent_4_data:/root/.cache/huggingface
     environment:
       - HF_TOKEN=${HF_TOKEN}
-      - CUDA_VISIBLE_DEVICES=3,4,5
-      - NVML_VISIBLE_DEVICES=3,4,5
-      #- HF_HUB_OFFLINE=1
+      - CUDA_VISIBLE_DEVICES=4
+      - NVML_VISIBLE_DEVICES=4
+      - PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
     command: >
-      meta-llama/Llama-3.1-8B-Instruct
-      --tensor-parallel-size 3
-      --max-model-len 8192
-      --max-num-batched-tokens 4096
-      --gpu-memory-utilization 0.85
+      TheBloke/Mistral-7B-Instruct-v0.2-AWQ
+      --tensor-parallel-size 1
+      --max-model-len 4096
+      --max-num-batched-tokens 2048
+      --quantization awq
+      --gpu-memory-utilization 0.80
       --dtype float16
     deploy:
       resources:
         reservations:
           devices:
             - driver: nvidia
-              device_ids: ['3', '4', '5']
+              device_ids: ['4']
               capabilities: [gpu]
 
   # ===========================================================
-  # ALTERNATIVE: Gemma 4 E2B — Lightweight Assistant
-  # GPU 0 only (tensor-parallel-size 1)
+  # AGENT 5: Phi 3.5 Mini — Lightweight/Fast Decisions
+  # GPU 5 | Port 11506 | ~3.8GB (native, no quantization)
   # ===========================================================
-  # 2B model, ultra-fast, multimodal, tool use capable
-  # Perfect for: quick tasks, edge deployment, low latency
-  # Memory: ~4GB on 1 GPU ✓ Comfortable fit (frees GPUs 1,2 for other tasks)
-  # TO ACTIVATE: Comment vllm-gemma4-main (TP3) above, uncomment this
-  # ===========================================================
-  # vllm-gemma4-main:
-  #   image: vllm/vllm-openai:latest
-  #   container_name: vllm-gemma4-main
-  #   restart: always
-  #   ports:
-  #     - "11501:8000"
-  #   ipc: host
-  #   volumes:
-  #     - vllm_gemma4_data:/root/.cache/huggingface
-  #   environment:
-  #     - HF_TOKEN=${HF_TOKEN}
-  #     - CUDA_VISIBLE_DEVICES=0
-  #     - NVML_VISIBLE_DEVICES=0
-  #     #- HF_HUB_OFFLINE=1
-  #   command: >
-  #     google/gemma-4-E2B-it
-  #     --tensor-parallel-size 1
-  #     --max-model-len 8192
-  #     --max-num-batched-tokens 4096
-  #     --gpu-memory-utilization 0.85
-  #     --enforce-eager
-  #     --enable-auto-tool-choice
-  #     --tool-call-parser gemma4
-  #     --dtype float16
-  #   deploy:
-  #     resources:
-  #       reservations:
-  #         devices:
-  #           - driver: nvidia
-  #             device_ids: ['0']
-  #             capabilities: [gpu]
+  vllm-agent-5:
+    image: vllm/vllm-openai:latest
+    container_name: vllm-agent-5
+    restart: always
+    ports:
+      - "11506:8000"
+    ipc: host
+    volumes:
+      - vllm_agent_5_data:/root/.cache/huggingface
+    environment:
+      - HF_TOKEN=${HF_TOKEN}
+      - CUDA_VISIBLE_DEVICES=5
+      - NVML_VISIBLE_DEVICES=5
+      - PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+    command: >
+      microsoft/phi-3.5-mini-instruct
+      --tensor-parallel-size 1
+      --max-model-len 4096
+      --max-num-batched-tokens 2048
+      --gpu-memory-utilization 0.80
+      --dtype float16
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ['5']
+              capabilities: [gpu]
 
   # ===========================================================
-  # ALTERNATIVE: Qwen 3.5 9B — Fast Text/Coding/Spanish
-  # GPU 3 (tensor-parallel-size 1)
-  # ===========================================================
-  # 9B model, excellent for multilingual + coding
-  # Perfect for: burst requests, coding, Spanish/multilingual
-  # Memory: ~5.5GB on GPU 3 ⚠️ Tight
-  # TO ACTIVATE: Uncomment this, comment vllm-llama-reasoning
-  # WARNING: Cannot run alongside Llama (Llama uses GPUs 3,4,5)
-  # ===========================================================
-  # vllm-qwen35-fast:
-  #   image: vllm/vllm-openai:latest
-  #   container_name: vllm-qwen35-fast
-  #   restart: always
-  #   ports:
-  #     - "11502:8000"
-  #   ipc: host
-  #   volumes:
-  #     - vllm_qwen35_fast_data:/root/.cache/huggingface
-  #   environment:
-  #     - HF_TOKEN=${HF_TOKEN}
-  #     - CUDA_VISIBLE_DEVICES=3
-  #     - NVML_VISIBLE_DEVICES=3
-  #     #- HF_HUB_OFFLINE=1
-  #   command: >
-  #     Qwen/Qwen3.5-9B-Instruct
-  #     --tensor-parallel-size 1
-  #     --max-model-len 32768
-  #     --gpu-memory-utilization 0.88
-  #     --enforce-eager
-  #     --dtype float16
-  #   deploy:
-  #     resources:
-  #       reservations:
-  #         devices:
-  #           - driver: nvidia
-  #             device_ids: ['3']
-  #             capabilities: [gpu]
-
-  # ===========================================================
-  # ALTERNATIVE: Qwen 2.5 VL 7B — Advanced Vision
-  # GPU 5 (tensor-parallel-size 1)
-  # ===========================================================
-  # 7B vision-language model, best for image analysis
-  # Perfect for: detailed image understanding, PDFs, documents
-  # Memory: ~7GB on GPU 5 ⚠️ Very tight at 0.85 utilization
-  # TO ACTIVATE: Uncomment this, comment vllm-llama-reasoning
-  # WARNING: Cannot run alongside Llama (Llama uses GPUs 3,4,5)
-  # ===========================================================
-  # vllm-qwen-vision:
-  #   image: vllm/vllm-openai:latest
-  #   container_name: vllm-qwen-vision
-  #   restart: always
-  #   ports:
-  #     - "11503:8000"
-  #   ipc: host
-  #   volumes:
-  #     - vllm_vision_data:/root/.cache/huggingface
-  #   environment:
-  #     - HF_TOKEN=${HF_TOKEN}
-  #     - CUDA_VISIBLE_DEVICES=5
-  #     - NVML_VISIBLE_DEVICES=5
-  #     #- HF_HUB_OFFLINE=1
-  #   command: >
-  #     Qwen/Qwen2.5-VL-7B-Instruct
-  #     --tensor-parallel-size 1
-  #     --max-model-len 4096
-  #     --gpu-memory-utilization 0.85
-  #     --enforce-eager
-  #     --dtype float16
-  #     --limit-mm-per-prompt image=4
-  #   deploy:
-  #     resources:
-  #       reservations:
-  #         devices:
-  #           - driver: nvidia
-  #             device_ids: ['5']
-  #             capabilities: [gpu]
-
-  # ===========================================================
-  # SERVICE: Ollama — CPU Embeddings for RAG
-  # CPU (no GPU)
-  # ===========================================================
-  # Embeddings model for semantic search/RAG
-  # Always active unless you prefer another embedding solution
+  # SERVICE: Ollama — Embeddings for Agent Memory
+  # CPU (no GPU) | Port 11507
   # ===========================================================
   ollama-embeddings:
     image: ollama/ollama:latest
     container_name: ollama-embeddings
     restart: always
     ports:
-      - "11504:11434"
+      - "11507:11434"
     environment:
       - CUDA_VISIBLE_DEVICES=-1
       - OLLAMA_NUM_PARALLEL=4
@@ -251,11 +255,8 @@ services:
       - ollama_data:/root/.ollama
 
   # ===========================================================
-  # SERVICE: Open WebUI — Browser Chat Interface
+  # SERVICE: Open WebUI — Multi-Agent Control Interface
   # Access: http://YOUR_SERVER_IP:3000
-  # ===========================================================
-  # Connects to primary model (11501 by default)
-  # Can add additional models via Settings > Connections
   # ===========================================================
   open-webui:
     image: ghcr.io/open-webui/open-webui:main
@@ -264,21 +265,23 @@ services:
     ports:
       - "3000:8080"
     environment:
-      - OPENAI_API_BASE_URL=http://vllm-gemma4-main:8000/v1
+      - OPENAI_API_BASE_URL=http://vllm-agent-0:8000/v1
       - OPENAI_API_KEY=not-needed
       - WEBUI_SECRET_KEY=${OPEN_WEBUI_SECRET}
     volumes:
       - open-webui_data:/app/backend/data
     depends_on:
-      - vllm-gemma4-main
+      - vllm-agent-0
 
 # ===========================================================
-# VOLUMES — persistent storage
+# VOLUMES — Persistent agent model storage
 # ===========================================================
 volumes:
-  vllm_gemma4_data:      # Gemma 4 E4B cache (~8 GB on disk)
-  vllm_llama_data:       # Llama 3.1 8B cache (~16 GB on disk)
-  vllm_qwen35_fast_data: # Qwen 3.5 9B cache (~5 GB on disk)
-  vllm_vision_data:      # Qwen 2.5 VL 7B cache (~8 GB on disk)
-  ollama_data:           # Ollama embeddings cache
-  open-webui_data:       # WebUI chat history and settings
+  vllm_agent_0_data:    # Mistral 7B AWQ
+  vllm_agent_1_data:    # DeepSeek 7B AWQ
+  vllm_agent_2_data:    # Llama 3.1 8B AWQ
+  vllm_agent_3_data:    # Qwen 2.5 7B AWQ
+  vllm_agent_4_data:    # Mistral 7B AWQ (backup)
+  vllm_agent_5_data:    # Phi 3.5 mini
+  ollama_data:          # Embeddings cache
+  open-webui_data:      # Agent chat history & config
