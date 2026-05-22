@@ -59,7 +59,7 @@ services:
       --max-model-len 4096
       --max-num-batched-tokens 2048
       --quantization awq
-      --gpu-memory-utilization 0.80
+      --gpu-memory-utilization 0.75
       --dtype float16
     deploy:
       resources:
@@ -88,12 +88,12 @@ services:
       - NVML_VISIBLE_DEVICES=1
       - PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
     command: >
-      TheBloke/deepseek-coder-7b-instruct-v1.5-AWQ
+      TheBloke/deepseek-coder-6.7B-instruct-AWQ
       --tensor-parallel-size 1
       --max-model-len 4096
       --max-num-batched-tokens 2048
       --quantization awq
-      --gpu-memory-utilization 0.80
+      --gpu-memory-utilization 0.75
       --dtype float16
     deploy:
       resources:
@@ -122,12 +122,12 @@ services:
       - NVML_VISIBLE_DEVICES=2
       - PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
     command: >
-      TheBloke/Llama-2-8B-Instruct-AWQ
+      hugging-quants/Meta-Llama-3.1-8B-Instruct-AWQ-INT4
       --tensor-parallel-size 1
       --max-model-len 4096
       --max-num-batched-tokens 2048
       --quantization awq
-      --gpu-memory-utilization 0.80
+      --gpu-memory-utilization 0.75
       --dtype float16
     deploy:
       resources:
@@ -161,7 +161,7 @@ services:
       --max-model-len 4096
       --max-num-batched-tokens 2048
       --quantization awq
-      --gpu-memory-utilization 0.80
+      --gpu-memory-utilization 0.75
       --dtype float16
     deploy:
       resources:
@@ -195,7 +195,7 @@ services:
       --max-model-len 4096
       --max-num-batched-tokens 2048
       --quantization awq
-      --gpu-memory-utilization 0.80
+      --gpu-memory-utilization 0.75
       --dtype float16
     deploy:
       resources:
@@ -228,7 +228,7 @@ services:
       --tensor-parallel-size 1
       --max-model-len 4096
       --max-num-batched-tokens 2048
-      --gpu-memory-utilization 0.80
+      --gpu-memory-utilization 0.75
       --dtype float16
     deploy:
       resources:
