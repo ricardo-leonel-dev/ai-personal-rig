@@ -63,7 +63,7 @@ services:
       --tool-call-parser gemma4
       --attention-backend TRITON_ATTN
       --dtype float16
-      --quantization awq_marlin
+      --quantization compressed-tensors
     deploy:
       resources:
         reservations:
