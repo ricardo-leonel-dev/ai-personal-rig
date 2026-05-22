@@ -54,13 +54,14 @@ services:
       - HF_TOKEN=${HF_TOKEN}
       - CUDA_VISIBLE_DEVICES=0,1
       - NVML_VISIBLE_DEVICES=0,1
+      - PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
       #- HF_HUB_OFFLINE=1
     command: >
       google/gemma-4-E4B-it
       --tensor-parallel-size 2
-      --max-model-len 8192
-      --max-num-batched-tokens 4096
-      --gpu-memory-utilization 0.85
+      --max-model-len 4096
+      --max-num-batched-tokens 2048
+      --gpu-memory-utilization 0.60
       --enforce-eager
       --enable-auto-tool-choice
       --tool-call-parser gemma4
