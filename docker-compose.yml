@@ -59,7 +59,7 @@ services:
       --max-model-len 4096
       --max-num-batched-tokens 2048
       --quantization awq
-      --gpu-memory-utilization 0.75
+      --gpu-memory-utilization 0.65
       --dtype float16
     deploy:
       resources:
@@ -93,7 +93,7 @@ services:
       --max-model-len 4096
       --max-num-batched-tokens 2048
       --quantization awq
-      --gpu-memory-utilization 0.75
+      --gpu-memory-utilization 0.65
       --dtype float16
     deploy:
       resources:
@@ -127,7 +127,7 @@ services:
       --max-model-len 4096
       --max-num-batched-tokens 2048
       --quantization awq
-      --gpu-memory-utilization 0.75
+      --gpu-memory-utilization 0.65
       --dtype float16
     deploy:
       resources:
@@ -161,7 +161,7 @@ services:
       --max-model-len 4096
       --max-num-batched-tokens 2048
       --quantization awq
-      --gpu-memory-utilization 0.75
+      --gpu-memory-utilization 0.65
       --dtype float16
       --enforce-eager
     deploy:
@@ -196,7 +196,7 @@ services:
       --max-model-len 4096
       --max-num-batched-tokens 2048
       --quantization awq
-      --gpu-memory-utilization 0.75
+      --gpu-memory-utilization 0.65
       --dtype float16
     deploy:
       resources:
@@ -229,7 +229,7 @@ services:
       --tensor-parallel-size 1
       --max-model-len 4096
       --max-num-batched-tokens 2048
-      --gpu-memory-utilization 0.75
+      --gpu-memory-utilization 0.65
       --dtype float16
     deploy:
       resources:
