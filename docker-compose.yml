@@ -36,8 +36,8 @@
 services:
 
   # ===========================================================
-  # AGENT 0: Mistral 7B — Reasoning & Analysis
-  # GPU 0 | Port 11501 | ~3.5GB (quantized)
+  # AGENT 0: Qwen 2.5 3B — Reasoning & Analysis
+  # GPU 0 | Port 11501 | ~2.0GB (quantized)
   # ===========================================================
   vllm-agent-0:
     image: vllm/vllm-openai:latest
@@ -54,12 +54,12 @@ services:
       - NVML_VISIBLE_DEVICES=0
       - PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
     command: >
-      TheBloke/Mistral-7B-Instruct-v0.2-AWQ
+      Qwen/Qwen2.5-3B-Instruct-AWQ
       --tensor-parallel-size 1
-      --max-model-len 2048
+      --max-model-len 4096
       --max-num-batched-tokens 2048
       --quantization awq
-      --gpu-memory-utilization 0.65
+      --gpu-memory-utilization 0.85
       --dtype float16
     deploy:
       resources:
@@ -70,8 +70,8 @@ services:
               capabilities: [gpu]
 
   # ===========================================================
-  # AGENT 1: DeepSeek 7B Coder — File Automation & Code
-  # GPU 1 | Port 11502 | ~3.5GB (quantized)
+  # AGENT 1: Qwen 2.5 3B Coder — File Automation & Code
+  # GPU 1 | Port 11502 | ~2.0GB (quantized)
   # ===========================================================
   vllm-agent-1:
     image: vllm/vllm-openai:latest
@@ -88,12 +88,12 @@ services:
       - NVML_VISIBLE_DEVICES=1
       - PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
     command: >
-      TheBloke/deepseek-coder-6.7B-instruct-AWQ
+      Qwen/Qwen2.5-Coder-3B-Instruct-AWQ
       --tensor-parallel-size 1
-      --max-model-len 2048
+      --max-model-len 4096
       --max-num-batched-tokens 2048
       --quantization awq
-      --gpu-memory-utilization 0.65
+      --gpu-memory-utilization 0.85
       --dtype float16
     deploy:
       resources:
@@ -104,8 +104,8 @@ services:
               capabilities: [gpu]
 
   # ===========================================================
-  # AGENT 2: Llama 3.1 8B — Planning & General Tasks
-  # GPU 2 | Port 11503 | ~4GB (quantized)
+  # AGENT 2: Qwen 2.5 3B — Planning & General Tasks
+  # GPU 2 | Port 11503 | ~2.0GB (quantized)
   # ===========================================================
   vllm-agent-2:
     image: vllm/vllm-openai:latest
@@ -122,12 +122,12 @@ services:
       - NVML_VISIBLE_DEVICES=2
       - PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
     command: >
-      TheBloke/Llama-2-7B-Chat-AWQ
+      Qwen/Qwen2.5-3B-Instruct-AWQ
       --tensor-parallel-size 1
-      --max-model-len 2048
+      --max-model-len 4096
       --max-num-batched-tokens 2048
       --quantization awq
-      --gpu-memory-utilization 0.65
+      --gpu-memory-utilization 0.85
       --dtype float16
     deploy:
       resources:
@@ -138,8 +138,8 @@ services:
               capabilities: [gpu]
 
   # ===========================================================
-  # AGENT 3: Mistral 7B — Multilingual & Translation
-  # GPU 3 | Port 11504 | ~3.5GB (quantized)
+  # AGENT 3: Qwen 2.5 3B — Multilingual & Translation
+  # GPU 3 | Port 11504 | ~2.0GB (quantized)
   # ===========================================================
   vllm-agent-3:
     image: vllm/vllm-openai:latest
@@ -156,14 +156,13 @@ services:
       - NVML_VISIBLE_DEVICES=3
       - PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
     command: >
-      TheBloke/Mistral-7B-Instruct-v0.1-AWQ
+      Qwen/Qwen2.5-3B-Instruct-AWQ
       --tensor-parallel-size 1
-      --max-model-len 2048
+      --max-model-len 4096
       --max-num-batched-tokens 2048
       --quantization awq
-      --gpu-memory-utilization 0.65
+      --gpu-memory-utilization 0.85
       --dtype float16
-      --enforce-eager
     deploy:
       resources:
         reservations:
@@ -173,8 +172,8 @@ services:
               capabilities: [gpu]
 
   # ===========================================================
-  # AGENT 4: Mistral 7B — Backup & Validation
-  # GPU 4 | Port 11505 | ~3.5GB (quantized)
+  # AGENT 4: Qwen 2.5 1.5B — Backup & Validation (Lightweight)
+  # GPU 4 | Port 11505 | ~1.0GB (quantized)
   # ===========================================================
   vllm-agent-4:
     image: vllm/vllm-openai:latest
@@ -191,12 +190,11 @@ services:
       - NVML_VISIBLE_DEVICES=4
       - PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
     command: >
-      TheBloke/Mistral-7B-Instruct-v0.2-AWQ
+      Qwen/Qwen2.5-1.5B-Instruct
       --tensor-parallel-size 1
-      --max-model-len 2048
+      --max-model-len 4096
       --max-num-batched-tokens 2048
-      --quantization awq
-      --gpu-memory-utilization 0.65
+      --gpu-memory-utilization 0.90
       --dtype float16
     deploy:
       resources:
@@ -207,8 +205,8 @@ services:
               capabilities: [gpu]
 
   # ===========================================================
-  # AGENT 5: Phi 3.5 Mini — Lightweight/Fast Decisions
-  # GPU 5 | Port 11506 | ~3.8GB (native, no quantization)
+  # AGENT 5: Qwen 2.5 1.5B — Fast Decisions (Lightweight)
+  # GPU 5 | Port 11506 | ~1.0GB (quantized)
   # ===========================================================
   vllm-agent-5:
     image: vllm/vllm-openai:latest
@@ -225,11 +223,11 @@ services:
       - NVML_VISIBLE_DEVICES=5
       - PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
     command: >
-      microsoft/phi-3.5-mini-instruct
+      Qwen/Qwen2.5-1.5B-Instruct
       --tensor-parallel-size 1
-      --max-model-len 2048
+      --max-model-len 4096
       --max-num-batched-tokens 2048
-      --gpu-memory-utilization 0.65
+      --gpu-memory-utilization 0.90
       --dtype float16
     deploy:
       resources:
