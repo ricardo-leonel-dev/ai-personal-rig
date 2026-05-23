@@ -163,6 +163,7 @@ services:
       --quantization awq
       --gpu-memory-utilization 0.75
       --dtype float16
+      --enforce-eager
     deploy:
       resources:
         reservations:
