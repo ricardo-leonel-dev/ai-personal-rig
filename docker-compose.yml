@@ -56,7 +56,7 @@ services:
     command: >
       TheBloke/Mistral-7B-Instruct-v0.2-AWQ
       --tensor-parallel-size 1
-      --max-model-len 4096
+      --max-model-len 2048
       --max-num-batched-tokens 2048
       --quantization awq
       --gpu-memory-utilization 0.65
@@ -90,7 +90,7 @@ services:
     command: >
       TheBloke/deepseek-coder-6.7B-instruct-AWQ
       --tensor-parallel-size 1
-      --max-model-len 4096
+      --max-model-len 2048
       --max-num-batched-tokens 2048
       --quantization awq
       --gpu-memory-utilization 0.65
@@ -124,7 +124,7 @@ services:
     command: >
       TheBloke/Llama-2-7B-Chat-AWQ
       --tensor-parallel-size 1
-      --max-model-len 4096
+      --max-model-len 2048
       --max-num-batched-tokens 2048
       --quantization awq
       --gpu-memory-utilization 0.65
@@ -158,7 +158,7 @@ services:
     command: >
       TheBloke/Mistral-7B-Instruct-v0.1-AWQ
       --tensor-parallel-size 1
-      --max-model-len 4096
+      --max-model-len 2048
       --max-num-batched-tokens 2048
       --quantization awq
       --gpu-memory-utilization 0.65
@@ -193,7 +193,7 @@ services:
     command: >
       TheBloke/Mistral-7B-Instruct-v0.2-AWQ
       --tensor-parallel-size 1
-      --max-model-len 4096
+      --max-model-len 2048
       --max-num-batched-tokens 2048
       --quantization awq
       --gpu-memory-utilization 0.65
@@ -227,7 +227,7 @@ services:
     command: >
       microsoft/phi-3.5-mini-instruct
       --tensor-parallel-size 1
-      --max-model-len 4096
+      --max-model-len 2048
       --max-num-batched-tokens 2048
       --gpu-memory-utilization 0.65
       --dtype float16
