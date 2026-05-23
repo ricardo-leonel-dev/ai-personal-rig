@@ -90,12 +90,11 @@ services:
     command: >
       Qwen/Qwen2.5-Coder-3B-Instruct-AWQ
       --tensor-parallel-size 1
-      --max-model-len 4096
+      --max-model-len 2048
       --max-num-batched-tokens 2048
       --quantization awq
-      --gpu-memory-utilization 0.85
+      --gpu-memory-utilization 0.65
       --dtype float16
-      --enforce-eager
     deploy:
       resources:
         reservations:
