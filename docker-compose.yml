@@ -61,6 +61,8 @@ services:
       --quantization awq
       --gpu-memory-utilization 0.85
       --dtype float16
+      --enable-auto-tool-choice
+      --tool-call-parser qwen
     deploy:
       resources:
         reservations:
